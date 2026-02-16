@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shorts Studio V10 Pro (Multi-Layer)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Dancing+Script:wght@700&family=Montserrat:wght@800&family=Roboto:wght@900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --bg: #000; --panel: rgba(20, 20, 20, 0.95); --accent: #6366f1; --success: #22c55e; --text: #fff; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Montserrat', sans-serif; height: 100dvh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; touch-action: none; }
+        .top-bar { height: 50px; display: flex; justify-content: center; align-items: center; position: absolute; top: 0; width: 100%; z-index: 10; pointer-events: none; }
+        .brand { font-size: 14px; letter-spacing: 2px; color: rgba(255,255,255,0.6); text-transform: uppercase; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 20px; backdrop-filter: blur(4px); }
+        .canvas-area { flex: 1; background: #050505; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; padding-bottom: 100px; }
+        canvas { max-width: 100%; max-height: 100%; box-shadow: 0 0 30px #000; touch-action: none; }
+        
+        .dock { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 380px; height: 75px; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; justify-content: space-around; align-items: center; z-index: 100; }
+        .menu-group { position: relative; }
+        .fab-main { width: 55px; height: 55px; border-radius: 50%; background: #333; color: #fff; border: 2px solid transparent; display: flex; justify-content: center; align-items: center; font-size: 22px; cursor: pointer; transition: 0.3s; }
+        .fab-main.active { background: #fff; color: #000; transform: rotate(45deg); }
+        .fab-main.pulse { animation: pulse 2s infinite; border-color: var(--success); }
+        .sub-menu { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%) scale(0.8); display: flex; flex-direction: column; gap: 12px; opacity: 0; pointer-events: none; transition: 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: rgba(30,30,30,0.95); padding: 12px; border-radius: 50px; border: 1px solid #444; transform-origin: bottom center; align-items: center; }
+        .menu-group.open .sub-menu { opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1); bottom: 85px; }
+        .fab-sub { width: 48px; height: 48px; border-radius: 50%; background: #444; color: #ccc; display: flex; justify-content: center; align-items: center; position: relative; cursor:pointer;}
+        .fab-sub svg { width: 22px; height: 22px; fill: currentColor; }
+        .fab-sub.has-data { color: var(--success); background: rgba(34, 197, 94, 0.15); border: 1px solid var(--success); }
+        .fab-sub::after { content: attr(data-label); position: absolute; left: 60px; background: #000; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; pointer-events: none; opacity: 0; transition: 0.2s; }
+        .menu-group.open .fab-sub:active::after { opacity: 1; }
+        #m-right .fab-sub::after { left: auto; right: 60px; }
+        
+        .zoom-panel { position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); background: var(--panel); backdrop-filter: blur(10px); padding: 8px 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; z-index: 90; opacity: 0; pointer-events: none; transition: 0.3s; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        .zoom-panel.active { opacity: 1; pointer-events: auto; border-color: var(--success); }
+        .zoom-label { font-size: 10px; color: #ccc; font-weight: bold; width: 60px; text-align: center; }
+        input[type="range"] { width: 140px; accent-color: var(--success); }
+
+        .dur-input-wrapper { background: #222; border-radius: 20px; padding: 5px 10px; display: flex; align-items: center; gap: 5px; border: 1px solid #444; }
+        .dur-input { background: transparent; border: none; color: var(--success); font-weight: bold; width: 30px; text-align: center; font-size: 14px; }
+        .dur-label { font-size: 10px; color: #888; text-transform: uppercase; }
+        input[type="file"] { display: none; }
+        
+        /* MODAL STYLES (General + Layer Manager) */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .modal-header { width: 100%; max-width: 400px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 18px; font-weight: 800; color: white; letter-spacing: 1px; }
+        .btn-close-modal { background: #333; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; cursor: pointer; }
+        
+        /* Layer Manager List */
+        .layer-list { width: 100%; max-width: 400px; max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .layer-item { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; }
+        .layer-item.is-video { border-left: 4px solid var(--accent); }
+        .layer-item.is-image { border-left: 4px solid #facc15; }
+        .layer-item.is-audio { border-left: 4px solid var(--success); }
+        
+        .layer-info { flex: 1; overflow: hidden; }
+        .layer-name { font-size: 14px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .layer-type { font-size: 10px; color: #888; text-transform: uppercase; }
+        
+        .layer-actions { display: flex; gap: 6px; }
+        .btn-action { width: 32px; height: 32px; border-radius: 8px; background: #2a2a2a; color: #fff; border: 1px solid #444; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .btn-action.active-mute { background: #ef4444; border-color: #ef4444; color: white; } 
+        .btn-action:active { background: #555; }
+        
+        .add-layer-btn { margin-top: 20px; padding: 12px 20px; border-radius: 20px; border: 1px dashed #666; background: transparent; color: #ccc; font-weight: bold; cursor: pointer; width: 100%; max-width: 400px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .add-layer-btn:hover { background: rgba(255,255,255,0.05); }
+
+        textarea { background: #111; border: 1px solid #333; border-radius: 15px; color: white; font-size: 20px; text-align: center; width: 100%; max-width: 400px; height: 100px; outline: none; margin-bottom: 20px; padding: 15px; resize: none; box-sizing: border-box; }
+        .scroll-opts { width: 100%; max-width: 400px; overflow-x: auto; display: flex; gap: 8px; padding-bottom: 10px; margin-bottom: 10px; justify-content: flex-start; }
+        .tag { padding: 8px 16px; background: #222; border-radius: 20px; font-size: 12px; color: #888; white-space: nowrap; border: 1px solid #333; cursor:pointer;}
+        .tag.active { background: white; color: black; border-color: white; }
+        
+        #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 300; display: none; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top-color: var(--success); border-radius: 50%; animation: spin 1s infinite linear; margin-bottom: 20px; }
+        .progress-track { width: 220px; height: 8px; background: #333; border-radius: 10px; overflow: hidden; position: relative; }
+        .progress-fill { width: 0%; height: 100%; background: var(--success); border-radius: 10px; transition: width 0.1s linear; }
+        .progress-text { color: white; margin-top: 15px; font-weight: bold; font-size: 18px; font-family: monospace; }
+        .progress-sub { color: #666; font-size: 10px; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="brand">SHORTS STUDIO PRO</div></div>
+    
+    <div class="canvas-area"><canvas id="canvas" width="1080" height="1920"></canvas></div>
+
+    <div class="zoom-panel" id="zoom-panel">
+        <div class="zoom-label" id="zoom-label">ZOOM --</div>
+        <input type="range" id="zoom-slider" min="0.1" max="5" step="0.05" value="1">
+    </div>
+
+    <div class="dock">
+        <div class="menu-group" id="m-left">
+            <div class="sub-menu">
+                <label class="fab-sub" data-label="Text" id="btn-text"><svg viewBox="0 0 24 24"><path d="M5 4v3h5v12h3V7h5V4H5zm12 5h-2v9h2V9z"/></svg></label>
+                <div class="fab-sub" data-label="Layers" id="btn-layers"><svg viewBox="0 0 24 24"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg></div>
+            </div>
+            <div class="fab-main" onclick="toggle('m-left')">🛠️</div>
+        </div>
+        
+        <div class="menu-group" id="m-center">
+            <div class="sub-menu">
+                <div class="fab-sub" data-label="Shuffle All" id="btn-shuffle-all"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></div>
+                <input type="file" id="f-multi" accept="image/*,video/*,audio/*">
+            </div>
+            <div class="fab-main" onclick="toggle('m-center')">🎥</div>
+        </div>
+        
+        <div class="menu-group" id="m-right">
+            <div class="sub-menu">
+                <div class="dur-input-wrapper"><span class="dur-label">SEC</span><input type="number" id="inp-dur" class="dur-input" value="5" min="1" max="60"></div>
+                <div class="fab-sub" data-label="Preview" id="btn-preview"><svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></div>
+                <div class="fab-sub" data-label="Download Pro" id="btn-download" style="color:var(--success)"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></div>
+            </div>
+            <div class="fab-main" id="fab-act" onclick="toggle('m-right')">⚡</div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal-text">
+        <div class="modal-header">
+            <div class="modal-title">TEXT EDITOR</div>
+            <button class="btn-close-modal" onclick="closeModal('modal-text')">×</button>
+        </div>
+        <textarea id="inp-text" placeholder="Tulis teks..."></textarea>
+        <div class="scroll-opts" id="opt-fonts">
+            <div class="tag active" data-font="Roboto" style="font-family:Roboto">Bold</div><div class="tag" data-font="Anton" style="font-family:Anton">Tall</div><div class="tag" data-font="Bangers" style="font-family:Bangers">Comic</div><div class="tag" data-font="Dancing Script" style="font-family:Dancing Script">Script</div>
+        </div>
+        <div class="scroll-opts" id="opt-styles">
+            <div class="tag active" data-style="plain">Biasa</div><div class="tag" data-style="outline">Outline</div><div class="tag" data-style="box">Box</div><div class="tag" data-style="neon">Neon</div>
+        </div>
+        <div class="scroll-opts" id="opt-colors">
+            <div class="tag active" data-color="#fff">Putih</div><div class="tag" data-color="#000">Hitam</div><div class="tag" data-color="#ef4444">Merah</div><div class="tag" data-color="#facc15">Kuning</div><div class="tag" data-color="#3b82f6">Biru</div>
+        </div>
+        <button onclick="saveText()" style="width:100%; max-width:400px; padding:15px; border-radius:20px; border:none; background:var(--success); color:white; font-weight:bold; font-size:16px;">Simpan Teks</button>
+    </div>
+
+    <div class="modal" id="modal-layers">
+        <div class="modal-header">
+            <div class="modal-title">LAYER MANAGER</div>
+            <button class="btn-close-modal" onclick="closeModal('modal-layers')">×</button>
+        </div>
+        <div class="layer-list" id="layer-container"></div>
+        <label class="add-layer-btn" for="f-multi">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            ADD LAYER (VID/IMG/AUD)
+        </label>
+    </div>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="progress-track"><div class="progress-fill" id="rec-progress"></div></div>
+        <div class="progress-text" id="rec-pct">0%</div>
+        <div class="progress-sub" id="rec-status">RENDERING ON SERVER...</div>
+    </div>
+
+<script>
+    const CW=1080, CH=1920;
+    const cvs = document.getElementById('canvas');
+    const ctx = cvs.getContext('2d', { willReadFrequently: true });
+    let act = new (window.AudioContext||window.webkitAudioContext)();
+    
+    let layers = []; 
+    let textLayer = { act:false, val:"", font:"Roboto", sty:"plain", col:"#fff", x:CW/2, y:CH/2, s:1, z:999 };
+    let st = { state: 'IDLE', dur: 5 };
+
+    function updateLayerUI() {
+        const container = document.getElementById('layer-container');
+        container.innerHTML = '';
+        const sortedLayers = [...layers].sort((a,b) => b.z - a.z);
+        
+        sortedLayers.forEach((l) => {
+            const div = document.createElement('div');
+            div.className = `layer-item is-${l.type}`;
+            let icon = l.type === 'video' ? '🎥' : l.type === 'image' ? '🖼️' : '🎵';
+
+            div.innerHTML = `
+                <div style="font-size:20px;">${icon}</div>
+                <div class="layer-info">
+                    <div class="layer-name">${l.file.name}</div>
+                    <div class="layer-type">${l.type.toUpperCase()} • Z:${l.z}</div>
+                </div>
+                <div class="layer-actions">
+                    ${l.type === 'video' ? `<button class="btn-action ${l.muted ? 'active-mute' : ''}" onclick="toggleMute('${l.id}')">🔇</button>` : ''}
+                    <button class="btn-action" onclick="moveLayer('${l.id}', 1)">🔼</button>
+                    <button class="btn-action" onclick="moveLayer('${l.id}', -1)">🔽</button>
+                    <button class="btn-action" onclick="deleteLayer('${l.id}')" style="background:#440000; color:#ff4444; border-color:#880000;">🗑️</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        checkActiveData();
+    }
+
+    window.moveLayer = (id, dir) => {
+        const idx = layers.findIndex(l => l.id === id);
+        if(idx === -1) return;
+        const targetZ = layers[idx].z + dir;
+        const swapIdx = layers.findIndex(l => l.z === targetZ);
+        if(swapIdx !== -1) {
+            layers[swapIdx].z -= dir;
+            layers[idx].z += dir;
+            draw(false);
+            updateLayerUI();
+        }
+    };
+
+    window.toggleMute = (id) => {
+        const l = layers.find(x => x.id === id);
+        if(l && l.type === 'video') {
+            l.muted = !l.muted;
+            l.element.muted = l.muted;
+            updateLayerUI();
+        }
+    };
+
+    window.deleteLayer = (id) => {
+        const l = layers.find(x => x.id === id);
+        if(l) {
+            if(l.type === 'audio' && l.element) {
+                try { l.element.stop(); } catch(e){}
+            } else if(l.type === 'video') {
+                l.element.pause();
+                l.element.removeAttribute('src');
+                l.element.load();
+                if(l.element.parentNode) l.element.parentNode.removeChild(l.element);
+            }
+        }
+        layers = layers.filter(x => x.id !== id);
+        layers.sort((a,b) => a.z - b.z).forEach((x, i) => x.z = i);
+        draw(false); updateLayerUI();
+    };
+
+    document.getElementById('f-multi').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+
+        const id = 'layer_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const zIndex = layers.length; 
+        let newLayer = { id, file, x: CW/2, y: CH/2, s: 1, z: zIndex, start: 0 };
+
+        if(file.type.startsWith('video/')) {
+            newLayer.type = 'video';
+            newLayer.muted = false; 
+            newLayer.element = document.createElement('video');
+            newLayer.element.muted = false; 
+            newLayer.element.loop = true;
+            newLayer.element.playsInline = true;
+            newLayer.element.crossOrigin = "anonymous";
+            newLayer.element.style.display = 'none'; 
+            document.body.appendChild(newLayer.element);
+            
+            newLayer.element.src = URL.createObjectURL(file);
+            newLayer.element.onloadeddata = () => {
+                newLayer.origW = newLayer.element.videoWidth;
+                newLayer.origH = newLayer.element.videoHeight;
+                if(zIndex === 0) {
+                    const r=CW/CH, vr=newLayer.origW/newLayer.origH;
+                    if(vr>r){ newLayer.s = CH/newLayer.origH; } else { newLayer.s = CW/newLayer.origW; }
+                } else {
+                    newLayer.s = 0.5;
+                }
+                layers.push(newLayer);
+                updateLayerUI();
+                newLayer.element.currentTime = 0.001; 
+            };
+
+            newLayer.element.onseeked = () => {
+                if(st.state === 'IDLE') draw(false);
+            };
+
+        } else if(file.type.startsWith('image/')) {
+            newLayer.type = 'image';
+            newLayer.element = new Image();
+            newLayer.element.crossOrigin = "anonymous";
+            newLayer.element.src = URL.createObjectURL(file);
+            newLayer.element.onload = () => {
+                newLayer.origW = newLayer.element.width;
+                newLayer.origH = newLayer.element.height;
+                layers.push(newLayer);
+                draw(false); updateLayerUI();
+            };
+
+        } else if(file.type.startsWith('audio/')) {
+            newLayer.type = 'audio';
+            const b = await file.arrayBuffer();
+            act.decodeAudioData(b, d => {
+                newLayer.buffer = d;
+                layers.push(newLayer);
+                updateLayerUI();
+            });
+        }
+        e.target.value = '';
+    });
+
+    document.getElementById('btn-shuffle-all').onclick = () => {
+        layers.forEach(l => {
+            if (l.type === 'video') {
+                l.start = Math.random() * Math.max(0, l.element.duration - st.dur);
+            } else if (l.type === 'audio') {
+                l.start = Math.random() * Math.max(0, l.buffer.duration - st.dur);
+            }
+        });
+        if (st.state === 'PREVIEW') {
+            stopAll();
+            setTimeout(() => document.getElementById('btn-preview').click(), 100);
+        } else {
+            stopAll(); 
+        }
+    };
+
+    function draw(transparentMode = false) {
+        if(transparentMode) {
+            ctx.clearRect(0,0,CW,CH);
+        } else {
+            ctx.fillStyle="#111"; ctx.fillRect(0,0,CW,CH);
+            const hasVisual = layers.some(l => l.type === 'video' || l.type === 'image');
+            if(!hasVisual){ ctx.fillStyle="#333"; ctx.font="80px Montserrat"; ctx.textAlign="center"; ctx.fillText("TAMBAH LAYER",CW/2,CH/2); }
+        }
+
+        const visualLayers = layers.filter(l => l.type === 'video' || l.type === 'image').sort((a,b) => a.z - b.z);
+        
+        visualLayers.forEach(l => {
+            if(transparentMode) return; 
+            if(l.type === 'video' && l.element.readyState < 2) return;
+            
+            ctx.save(); 
+            ctx.translate(l.x, l.y); 
+            ctx.scale(l.s, l.s);
+            ctx.drawImage(l.element, -l.origW/2, -l.origH/2, l.origW, l.origH); 
+            ctx.restore();
+        });
+
+        if(textLayer.act) {
+            ctx.save(); ctx.translate(textLayer.x, textLayer.y); ctx.scale(textLayer.s, textLayer.s);
+            ctx.font=`900 100px '${textLayer.font}'`; ctx.textAlign="center"; ctx.textBaseline="middle";
+            const l=textLayer.val.split('\n');
+            l.forEach((t,i)=>{
+                let y=(i-(l.length-1)/2)*110;
+                if(textLayer.sty==='box'){
+                    let m=ctx.measureText(t); ctx.fillStyle=textLayer.col; ctx.fillRect(-m.width/2-20, y-50, m.width+40, 100); ctx.fillStyle=textLayer.col==='#fff'?'#000':'#fff'; ctx.fillText(t,0,y);
+                } else if(textLayer.sty==='outline'){
+                    ctx.lineWidth=15; ctx.strokeStyle="#000"; ctx.lineJoin="round"; ctx.strokeText(t,0,y); ctx.fillStyle=textLayer.col; ctx.fillText(t,0,y);
+                } else if(textLayer.sty==='neon'){
+                    ctx.shadowColor=textLayer.col; ctx.shadowBlur=30; ctx.fillStyle="#fff"; ctx.fillText(t,0,y);
+                } else { ctx.shadowColor="rgba(0,0,0,0.8)"; ctx.shadowBlur=10; ctx.fillStyle=textLayer.col; ctx.fillText(t,0,y); }
+            });
+            ctx.restore();
+        }
+        if(st.state === 'PREVIEW' && !transparentMode) requestAnimationFrame(() => draw(false));
+    }
+
+    function stopAll() {
+        st.state = 'IDLE';
+        layers.forEach(l => {
+            if(l.type === 'audio' && l.element) { try{ l.element.stop(); }catch(e){} l.element=null; }
+            if(l.type === 'video') { 
+                l.element.pause(); 
+                l.element.currentTime = l.start > 0 ? l.start : 0.001; 
+            }
+        });
+        document.getElementById('icon-play').style.display='block';
+        document.getElementById('icon-pause').style.display='none';
+    }
+
+    function startPlayback() {
+        if(act.state==='suspended') act.resume();
+        layers.forEach(l => {
+            if(l.type === 'video') { 
+                l.element.currentTime = l.start; 
+                l.element.muted = l.muted; 
+                l.element.play(); 
+            }
+            if(l.type === 'audio') {
+                if(l.element) try{ l.element.stop() }catch(e){}
+                l.element = act.createBufferSource();
+                l.element.buffer = l.buffer;
+                l.element.loop = true;
+                l.element.loopStart = l.start;
+                l.element.loopEnd = l.start + st.dur;
+                l.element.connect(act.destination);
+                l.element.start(0, l.start);
+            }
+        });
+        draw(false);
+    }
+
+    document.getElementById('btn-preview').onclick = () => {
+        if(st.state === 'PREVIEW') {
+            stopAll();
+        } else {
+            if(st.state === 'RECORDING') return; 
+            st.state = 'PREVIEW';
+            document.getElementById('icon-play').style.display='none';
+            document.getElementById('icon-pause').style.display='block';
+            startPlayback();
+        }
+    };
+
+    function toggle(id) {
+        ['m-left','m-center','m-right'].forEach(x => {
+            if(x !== id) {
+                document.getElementById(x).classList.remove('open');
+                const fab = document.querySelector(`#${x} .fab-main`);
+                if(fab) fab.classList.remove('active');
+            }
+        });
+        if (!id) return; 
+        const el = document.getElementById(id);
+        const fab = document.querySelector(`#${id} .fab-main`);
+        if(el) el.classList.toggle('open');
+        if(fab) fab.classList.toggle('active');
+    }
+
+    document.querySelector('.canvas-area').addEventListener('click',()=>toggle(''));
+    document.getElementById('btn-layers').onclick = () => { document.getElementById('modal-layers').style.display='flex'; toggle(''); };
+    document.getElementById('btn-text').onclick = () => { document.getElementById('modal-text').style.display='flex'; document.getElementById('inp-text').value=textLayer.val; toggle(''); };
+    
+    window.closeModal = (id) => document.getElementById(id).style.display='none';
+    window.saveText = () => { textLayer.val=document.getElementById('inp-text').value; textLayer.act=!!textLayer.val; closeModal('modal-text'); draw(false); checkActiveData(); };
+    
+    ['fonts','styles','colors'].forEach(k=>{ document.querySelectorAll(`#opt-${k} .tag`).forEach(el=>{ el.onclick=()=>{ document.querySelectorAll(`#opt-${k} .tag`).forEach(x=>x.classList.remove('active')); el.classList.add('active'); if(k==='fonts')textLayer.font=el.dataset.font; if(k==='styles')textLayer.sty=el.dataset.style; if(k==='colors')textLayer.col=el.dataset.color; }})});
+
+    const inpDur = document.getElementById('inp-dur');
+    inpDur.onchange = () => { let v=parseInt(inpDur.value); if(v<1)v=1; if(v>60)v=60; st.dur=v; inpDur.value=v; };
+
+    function checkActiveData() {
+        if(textLayer.act) document.getElementById('btn-text').classList.add('has-data'); else document.getElementById('btn-text').classList.remove('has-data');
+        if(layers.length > 0) document.getElementById('btn-layers').classList.add('has-data'); else document.getElementById('btn-layers').classList.remove('has-data');
+    }
+
+    let activeItem = null, targetItem = null, lastPos = {x: 0, y: 0};
+    const zoomPanel = document.getElementById('zoom-panel');
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomLabel = document.getElementById('zoom-label');
+
+    zoomSlider.addEventListener('input', (e) => {
+        if (targetItem) {
+            targetItem.s = parseFloat(e.target.value);
+            zoomPanel.classList.add('active');
+            if (st.state === 'IDLE') draw(false);
+        }
+    });
+
+    cvs.addEventListener('touchstart', e => {
+        e.preventDefault();
+        if (e.touches.length !== 1) return;
+        
+        const r = cvs.getBoundingClientRect();
+        const pos = { x: (e.touches[0].clientX - r.left) * (CW / r.width), y: (e.touches[0].clientY - r.top) * (CH / r.height) };
+
+        if (textLayer.act && Math.hypot(pos.x - textLayer.x, pos.y - textLayer.y) < 200) {
+            activeItem = textLayer;
+            zoomLabel.innerText = "ZOOM TEXT";
+        } else {
+            const visualLayers = layers.filter(l => l.type === 'video' || l.type === 'image').sort((a,b) => b.z - a.z);
+            activeItem = null;
+            for(let l of visualLayers) {
+                const halfW = (l.origW * l.s) / 2;
+                const halfH = (l.origH * l.s) / 2;
+                if(pos.x >= l.x - halfW && pos.x <= l.x + halfW && pos.y >= l.y - halfH && pos.y <= l.y + halfH) {
+                    activeItem = l;
+                    zoomLabel.innerText = `ZOOM ${l.type.toUpperCase()}`;
+                    break;
+                }
+            }
+        }
+
+        if (activeItem) {
+            lastPos = pos;
+            targetItem = activeItem; 
+            zoomSlider.value = targetItem.s;
+            zoomPanel.classList.add('active'); 
+        } else {
+            zoomPanel.classList.remove('active'); 
+        }
+    }, { passive: false });
+
+    cvs.addEventListener('touchmove', e => {
+        e.preventDefault();
+        if (!activeItem || e.touches.length !== 1) return;
+        const r = cvs.getBoundingClientRect();
+        const pos = { x: (e.touches[0].clientX - r.left) * (CW / r.width), y: (e.touches[0].clientY - r.top) * (CH / r.height) };
+        activeItem.x += pos.x - lastPos.x;
+        activeItem.y += pos.y - lastPos.y;
+        lastPos = pos;
+        if (st.state === 'IDLE') draw(false);
+    }, { passive: false });
+
+    cvs.addEventListener('touchend', e => {
+        e.preventDefault();
+        if (e.touches.length === 0) activeItem = null; 
+    }, { passive: false });
+
+    document.getElementById('btn-download').onclick = async () => {
+        if(layers.length === 0) return alert("Tambahkan minimal 1 video/gambar di Layer Manager!");
+
+        stopAll(); toggle(''); zoomPanel.classList.remove('active');
+        st.state = 'RECORDING';
+
+        const pBar = document.getElementById('rec-progress');
+        const pTxt = document.getElementById('rec-pct');
+        const pStat = document.getElementById('rec-status');
+        document.getElementById('loader').style.display = 'flex';
+        
+        pTxt.innerText = 'PROCESSING...';
+        pStat.innerText = 'UPLOADING...';
+        pBar.style.width = '30%'; pBar.style.transition = 'width 2s ease-out';
+        
+        try {
+            draw(true);
+            const textBlob = await new Promise(r => cvs.toBlob(r, 'image/png'));
+            draw(false);
+
+            const fd = new FormData();
+            const comp = { dur: st.dur, layers: [] };
+
+            layers.forEach(l => {
+                comp.layers.push({
+                    id: l.id, type: l.type,
+                    x: l.x, y: l.y, s: l.s, z: l.z,
+                    origW: l.origW || 100, origH: l.origH || 100,
+                    muted: l.muted || false, start: l.start || 0
+                });
+                fd.append(l.id, l.file);
+            });
+
+            fd.append('composition', JSON.stringify(comp));
+            if(textLayer.act) fd.append('text_overlay', textBlob);
+
+            pStat.innerText = 'RENDERING ON SERVER...';
+            pBar.style.width = '90%'; pBar.style.transition = 'width ' + (st.dur * 0.8) + 's linear'; 
+
+            const res = await fetch('/render', { method: 'POST', body: fd });
+            if(!res.ok) {
+                const errTxt = await res.text();
+                throw new Error("Gagal render! Server: " + errTxt);
+            }
+
+            pBar.style.width = '100%'; pTxt.innerText = 'READY!'; pStat.innerText = 'SAVING FILE...';
+
+            const vidBlob = await res.blob();
+            const url = URL.createObjectURL(vidBlob);
+            const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
+            a.download = `ShortsHD_${Date.now()}.mp4`; document.body.appendChild(a); a.click();
+            setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+
+        } catch (err) {
+            alert("Error Rendering: " + err.message);
+        } finally {
+            document.getElementById('loader').style.display = 'none';
+            pBar.style.transition = 'none'; pBar.style.width = '0%'; st.state = 'IDLE';
+        }
+    };
+
+    draw(false);
+</script>
+</body>
+</html>
